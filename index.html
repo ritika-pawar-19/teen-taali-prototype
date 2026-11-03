@@ -919,7 +919,7 @@ function runTweens() {
    ===================================================================== */
 var G = { mode: 'boot', phase: 'boot', busy: false, sel: -1, drag: null, kfocus: 14, roundN: 0, final: null, sent: [], demoSeen: store.get('demoSeen') === '1',
   helpOK: false, lastInput: 'pointer', timing: false, timeLeft: TUNE.round, playT: 0, timeUp: false, cascade: 0, cascadeMax: 0, points: 0, moves: 0, refills: 0,
-  step: 0, ready: false, handed: 0, queue: [], qi: 0, cur: null, openerI: 0, stepT0: 0, waits: [0, 0, 0, 0, 0], handPending: false, handReadyT: 0, toastQ: [],
+  step: 0, ready: false, handed: 0, queue: [], qi: 0, cur: null, openerI: 0, stepT0: 0, waits: [0, 0, 0, 0, 0], handPending: false, handReadyT: 0, holdUntil: 0, toastQ: [],
   idleT: 0, hintT: -9, starveT: 0, starveCheckT: 0, paused: false, demoReturn: null, lowWarned: false, scene: 'play', lastFocus: 14 };
 var T = { spawned: 0, cleared: 0, list: [], first: {}, nextT: TUNE.trapFirst, order: [] };   /* traps this round */
 var grid = [];                       /* 36 cells: a tile object or null */
@@ -935,7 +935,8 @@ var HOV = { s: 0 };
 var SEC = { x: 340, busy: false };
 var RB = { x: ROHAN_X, dir: -1, pose: 'stand', poseUntil: 0, face: 'sm', faceUntil: 0, look: [-3, 0], lean: 0, nodT: -9, walk: 0, ph: 0, sweat: 0, base: 'stand', baseDir: -1 };
 var SHOP = { cur: null, prev: null };
-var BUB = { rsb: { s: 0, until: -9 }, lsb: { s: 0, until: -9 }, tsb: { s: 0, until: -9 }, mb: { s: 0 } };
+var BUB = { rsb: { s: 0, until: -9, t0: 0 }, lsb: { s: 0, until: -9, t0: 0 }, tsb: { s: 0, until: -9 }, mb: { s: 0 } };
+var BUB_MIN = 1.8;                                   /* a bubble that has just come up keeps at least this long before the hand-over clears it */
 var DST = { P: 0, M: 0, I: 0 };      /* how visible each trap's strip prop is (0..1) */
 var FLY = [{ on: false }, { on: false }, { on: false }];
 var FXL = [];                        /* live effect particles */
@@ -1017,12 +1018,16 @@ function popIn(o, d) { o.s = 0; tw(o, 's', 1, d || .3, E.outBackBig); }
 function popOut(o, d) { tw(o, 's', 0, d || .15, E.inn); }
 function archieSay(text, dur) {
   txt(D.abTx, text); popIn(AB, .3); CAN.wigT = clock; sfx('pop'); announce('Archie: ' + text);
-  if (dur) at(dur, function () { popOut(AB); });
+  var tok = AB.tok = (AB.tok || 0) + 1; AB.t0 = clock;
+  if (dur) at(dur, function () { if (tok === AB.tok) popOut(AB); });
 }
 function demoCaption(i) { txt(D.dcapTx, CONTENT.demo.captions[i]); DCAP.step = i; popIn(DCAP, .3); announce(CONTENT.demo.captions[i]); sfx('pop'); }
-function cardDur(s) { return Math.max(1.4, .4 + words(s) * .22); }
-function nextDur(s) { return Math.max(1.2, .2 + words(s) * .22); }
-var TO_GUARD = .8;                                   /* a line always shows this long before a tap can move it on */
+/* a deck line's reading time: 1.2 s to look down at the panel, then 2.5 words a second (read in English, on a phone, mid-game) */
+function cardDur(s) { return Math.max(3, 1.2 + words(s) * .4); }
+function nextDur(s) { return Math.max(2.6, 1 + words(s) * .4); }
+var TO_GUARD = 1.5;                                  /* a line always shows this long (35% of a long line's time) before its arrow (or Enter / Space) can move it on */
+var TO_CLOSE_GUARD = 2.5;                            /* ...and at least this long (80% of a long line's time) before a tap anywhere else on the panel or the floor does, so a habit tap from the last swap cannot */
+function floorGuard() { return Math.max(TO_CLOSE_GUARD, TO.dur * .8); }
 function nextKind() { return G.ready && G.step < 5 ? STEP_K[G.step] : 'G'; }
 
 /* =====================================================================
@@ -1290,7 +1295,7 @@ function settle() {
 }
 /* no move left: Archie reshuffles the floor (traps stay where they are) */
 function reshuffle(cb) {
-  G.busy = true; phase('shuffle'); archieSay(CONTENT.archie.shuffle, 1.5); sfx('riffle'); announce(CONTENT.say.shuffle); G.shuffles = (G.shuffles || 0) + 1;
+  G.busy = true; phase('shuffle'); archieSay(CONTENT.archie.shuffle, 2.2); sfx('riffle'); announce(CONTENT.say.shuffle); G.shuffles = (G.shuffles || 0) + 1;
   var idx = []; grid.forEach(function (t, i) { if (t && isMove(t.k)) idx.push(i); });
   idx.forEach(function (i, n) { tw(grid[i], 'sp', 1, .26, E.inn, n * .005); });
   at(.32, function () {
@@ -1328,7 +1333,7 @@ function registerTrap(t, land) {
   t.tid = T.list.length; T.list.push({ k: t.k, t0: G.playT, t1: -1 }); T.spawned++;
   T.nextT = G.playT + TUNE.trapGap[0] + rnd() * (TUNE.trapGap[1] - TUNE.trapGap[0]);
   at(land || .35, function () { sfx('trapIn'); });
-  trapTag(t, land || 0, 1.4);
+  trapTag(t, land || 0, 2.2);
   announce(CONTENT.say.trapIn.replace('{t}', CONTENT.traps[t.k].name));
 }
 /* the trap's name in a red tag over the top edge of its tile; it rides along if the tile falls further */
@@ -1337,7 +1342,7 @@ function trapTag(t, delay, dur) {
   p.el.textContent = CONTENT.traps[t.k].name; p.w = p.el.offsetWidth || 90; p.tile = t;
   return p;
 }
-function popTag(k, x, y) { var tg = addFx('tag', x, y, { dur: 1.15, delay: .05 }); tg.el.textContent = CONTENT.traps[k].name; tg.w = tg.el.offsetWidth || 90; }
+function popTag(k, x, y) { var tg = addFx('tag', x, y, { dur: 2.2, delay: .05 }); tg.el.textContent = CONTENT.traps[k].name; tg.w = tg.el.offsetWidth || 90; }
 function trapLine(k) { return (CONTENT.dontTraps[k] ? '<span class="dt">' + CONTENT.dont + '</span>' : '') + CONTENT.trapLines[k]; }
 /* a trap cannot be moved: a press on it makes it jiggle (Iris bats her lashes at you) */
 function trapPoke(t) { t.shakeT = clock; sfx(t.k === 'I' ? 'boing' : (t.k === 'P' ? 'buzz' : 'nope')); }
@@ -1385,20 +1390,20 @@ function setPose(p, dur) { RB.pose = p; RB.poseUntil = clock + dur; }
 function setFace(f, dur) { RB.face = f; RB.faceUntil = clock + dur; }
 function sayRohan(text, dur) {
   txt(D.rsbTx, text); popOut(BUB.tsb, .1); BUB.tsb.until = -9; popIn(BUB.rsb, .28); BUB.rsb.until = clock + dur; announce('Rohan: ' + text);
-  BUB.rsb.t0 = clock; BUB.rsb.read = clamp(.3 + words(text) * .17, 1.4, 2);      /* how long the opener stays readable before anyone talks over it */
+  BUB.rsb.t0 = clock; BUB.rsb.read = clamp(1 + words(text) * .36, 3.2, 4.4);      /* how long the opener stays readable before anyone talks over it */
   BUB.rsb.w = D.rsb.offsetWidth; BUB.rsb.h = D.rsb.offsetHeight;
 }
 function sayShopper(m, dur) {
   var said = CONTENT.missionSay[m] || '';
   D.lsbPi.innerHTML = tiSvg(m); txt(D.lsbTx, said); show(D.lsbTx, !!said);
-  popOut(BUB.mb, .12); popIn(BUB.lsb, .28); BUB.lsb.until = clock + dur;
+  popOut(BUB.mb, .12); popIn(BUB.lsb, .28); BUB.lsb.until = clock + dur; BUB.lsb.t0 = clock;
   BUB.lsb.w = D.lsb.offsetWidth; BUB.lsb.h = D.lsb.offsetHeight;
   if (said) announce((G.cur ? NAMES[G.cur.who] : '') + ': ' + said);
 }
 function trapBubble(k) {
   if (BUB.rsb.until > clock) { at(BUB.rsb.until - clock + .05, function () { if (G.mode === 'round') trapBubble(k); }); return; }   /* never over Rohan's opener */
   D.tsbTg.innerHTML = k === 'I' ? '<svg viewBox="10 4 250 230" aria-hidden="true">' + uniq(IRIS, 'tb' + (++uidN)).replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '') + '</svg>' : glyph(k, '#D9483B');
-  popIn(BUB.tsb, .25); BUB.tsb.until = clock + 1.4; RB.nodT = clock; setFace('sm', 1.2);
+  popIn(BUB.tsb, .25); BUB.tsb.until = clock + 2; RB.nodT = clock; setFace('sm', 1.2);
 }
 /* how the strip reacts to each step (the board never pauses for these) */
 function react(s) {
@@ -1407,25 +1412,35 @@ function react(s) {
     RB.nodT = clock; setPose('palm', 1.5); setFace('tk', 1.1);
     sh.st.hopT = clock; sh.st.face = 'happy'; sh.st.faceUntil = clock + 1.3;
   } else if (s === 1) {                /* Ask: one of the deck's openers, word for word, rotating */
-    var line = CONTENT.openers[G.openerI % CONTENT.openers.length]; G.openerI++;
     setFace('talk', 1.2); setPose('palm', 1.3);
-    sayRohan(line, clamp(.5 + words(line) * .2, 1.6, 2.6));
+    if (G.mode !== 'demo') { var line = CONTENT.openers[G.openerI % CONTENT.openers.length]; G.openerI++; sayRohan(line, clamp(1.6 + words(line) * .4, 3.6, 5.2)); }
     sh.st.look = [3, -1];
   } else if (s === 2) {                /* Listen: Rohan leans in, her bubble shows what she is looking for */
     /* if his opener is still up, she waits until it has been read: never two bubbles at once */
-    var wait = BUB.rsb.until > clock ? Math.max(0, BUB.rsb.t0 + BUB.rsb.read - clock) : 0;
-    var listen = function () {
-      if (SHOP.cur !== sh || !G.cur || G.step !== 3) return;          /* Guide already ticked (or a new shopper): skip her line */
+    var listen = G.listenFn = function () {
+      G.listenFn = null;
+      if (SHOP.cur !== sh || !G.cur || G.step < 3 || G.step > 4 || G.scene !== 'play') return;     /* a new shopper, or the hand-over has begun: skip her line */
       tw(RB, 'lean', 1, .25, E.outBack); at(1.5, function () { tw(RB, 'lean', 0, .3, E.inOut); });
       setFace('sm', 1.5);
       sh.st.talkUntil = clock + 1.3;
-      sayShopper(G.cur.mission, CONTENT.missionSay[G.cur.mission] ? 2.1 : 1.6);
+      sayShopper(G.cur.mission, CONTENT.missionSay[G.cur.mission] ? 3 : 2.2);
     };
-    at(wait, function () {
-      if (BUB.rsb.s > .05) { popOut(BUB.rsb, .12); BUB.rsb.until = -9; at(.13, listen); } else listen();   /* his bubble goes first, then hers comes */
-    });
+    var go = function () {
+      if (G.listenFn !== listen) return;
+      var wait = BUB.rsb.until > clock ? BUB.rsb.t0 + BUB.rsb.read - clock : 0;     /* read again each time: the wait stands still under a deck line */
+      if (wait > .02) { at(wait, go); return; }
+      if (BUB.rsb.s > .05) { popOut(BUB.rsb, .12); BUB.rsb.until = -9; at(.13, function () { if (G.listenFn === listen) listen(); }); } else listen();   /* his bubble goes first, then hers comes */
+    };
+    go();
   } else if (s === 3) {                /* Guide: Rohan turns to the section with an open palm; both step toward it */
-    popOut(BUB.lsb, .12); popOut(BUB.rsb, .12); BUB.lsb.until = -9; BUB.rsb.until = -9;   /* the bubbles make way so the Guide tick and the next glow show */
+    /* his question keeps its read window (the "Next: Hand over" pill stays clear below the bubbles); then she answers through
+       the waiting go() in react(2). If his window is over he makes way now, and she answers once the Guide disc has landed */
+    var keep = BUB.rsb.s > .05 && BUB.rsb.until > clock ? BUB.rsb.t0 + BUB.rsb.read - clock : 0;
+    if (keep > .05) BUB.rsb.until = clock + keep;
+    else {
+      popOut(BUB.rsb, .12); BUB.rsb.until = -9;
+      if (G.listenFn) { var lf = G.listenFn; at(.5, function () { if (G.listenFn === lf) lf(); }); }
+    }
     RB.base = 'palm'; RB.baseDir = 1; RB.dir = 1; RB.nodT = clock;
     walkRohan(ROHAN_X + 6, .35);
     walkShopper(sh, DOOR_X + 26, .55);
@@ -1443,15 +1458,31 @@ function walkShopper(sh, x, dur, cb) {
   sh.st.walk = 1; tw(sh, 'x', x, dur, E.inOut);
   at(dur, function () { if (tok !== sh.walkTok) return; sh.st.walk = 0; if (cb) cb(); });
 }
-/* Hand over: they reach the section, the board pauses and the deck line shows */
+/* Hand over: they reach the section, the board pauses and the deck line shows. A bubble that has only just come up gets its
+   first BUB_MIN seconds before the walk starts (the floor is locked for the hand-over anyway, and the round clock waits too);
+   a reply that has not started yet is skipped, never flashed */
 function startHandover() {
-  var cur = G.cur;
-  G.ready = false; G.handPending = true; G.handReadyT = clock + TUNE.handWait; G.scene = 'handover';
+  var cur = G.cur, hold = 0;
+  if (!G.timeUp) {                                   /* at 0:00 the hand-over goes straight on */
+    if (BUB.rsb.s > .05 && BUB.rsb.until > clock) hold = BUB.rsb.t0 + Math.min(BUB.rsb.read || BUB_MIN, 3) - clock;   /* his question: up to 3 s of its read window */
+    if (BUB.lsb.s > .05 && BUB.lsb.until > clock) hold = Math.max(hold, BUB.lsb.t0 + BUB_MIN - clock);
+    hold = clamp(hold || 0, 0, 3);
+    /* a spoken reply still waiting for his question is said inside the hold, after it, instead of being lost */
+    if (G.listenFn && CONTENT.missionSay[cur.mission] && !(BUB.lsb.s > .05)) {
+      var hr = hold;
+      at(hr, function () { popOut(BUB.rsb, .12); BUB.rsb.until = -9; });
+      at(hr + .13, function () { if (SHOP.cur) SHOP.cur.st.talkUntil = clock + 1.3; sayShopper(cur.mission, BUB_MIN + .3); });
+      hold = hr + .13 + BUB_MIN;
+    }
+    if (hold > .3) tw(DIM, 'o', .5, .3, E.out);     /* the floor waits: it dims a little so the eye goes to the strip */
+  }
+  G.ready = false; G.handPending = true; G.handReadyT = clock + hold + TUNE.handWait; G.holdUntil = clock + hold; G.scene = 'handover'; G.listenFn = null;
   var pieces = cur.mission === 'laptop' ? (cur.busy ? CONTENT.handover.busy : CONTENT.handover.laptop) : CONTENT.handover.other;
   G.toastQ.push({ kind: 'hand', pieces: pieces });
-  popOut(BUB.mb, .12); popOut(BUB.rsb, .12); popOut(BUB.lsb, .12);
-  at(.42, function () { tw(CH, 'col', 1, .3, E.inOut); popIn(HOV, .35); });
-  at(.5, function () {
+  popOut(BUB.mb, .12);
+  at(hold, function () { popOut(BUB.rsb, .12); popOut(BUB.lsb, .12); BUB.rsb.until = -9; BUB.lsb.until = -9; });
+  at(hold + .42, function () { tw(CH, 'col', 1, .3, E.inOut); popIn(HOV, .35); });
+  at(hold + .5, function () {
     setSection(cur); tw(SEC, 'x', 234, .42, E.outBack); sfx('whoosh');
     if (SHOP.cur) walkShopper(SHOP.cur, 160, .78, function () { SHOP.cur.st.face = 'happy'; SHOP.cur.st.faceUntil = clock + 9; SHOP.cur.st.look = [3, 0]; });
     RB.base = 'stand';
@@ -1546,6 +1577,10 @@ function showToast(item) {
 }
 function toast(pieces, cb, fresh) {
   G.paused = true; TO.on = true; TO.pieces = pieces; TO.fresh = fresh || { 0: true }; TO.idx = -1; TO.cb = cb; TO.open0 = clock;
+  if (G.mode === 'round' && AB.s > .01) {             /* one thing to read at a time: Archie's "New floor plan." makes way, once it has had 1.8 s */
+    var keepA = (AB.t0 || 0) + 1.8 - clock, tk = AB.tok;
+    if (keepA > .05) at(keepA, function () { if (tk === AB.tok) popOut(AB); }); else { AB.tok = (AB.tok || 0) + 1; popOut(AB); }
+  }
   tw(TO, 's', 1, .3, E.outBack); D.tgo.disabled = G.mode !== 'round'; tw(DIM, 'o', 1, .25, E.out); deselect();
   nextPiece();
   if (G.lastInput === 'key' && G.mode === 'round') at(.3, function () { if (TO.on) try { D.tgo.focus(); } catch (e) {} });
@@ -1562,13 +1597,15 @@ function nextPiece() {
 /* a tap on the panel, its arrow, Enter or Space: the next part (or close after the last part), once it has shown TO_GUARD */
 function skipToast() {
   if (!TO.on || G.mode !== 'round') return;
-  if (clock - TO.t0 < TO_GUARD) { TO.nudgeT = clock; return; }
+  if (clock - TO.t0 < Math.max(TO_GUARD, TO.dur * .35)) { TO.nudgeT = clock; return; }     /* 1.5 s, or a third of a long line's time */
   nextPiece();
 }
-/* a tap on the board: the whole line closes (after TO_GUARD) so play goes on */
+/* a tap on the board: once the part on screen has had its floor guard it moves on like the arrow (the next part, or the panel
+   closes after the last), so a part not yet shown is never lost */
 function dismissToast() {
   if (!TO.on || G.mode !== 'round') return false;
-  if (clock - TO.open0 < TO_GUARD) { TO.nudgeT = clock; return false; }
+  if (clock - TO.t0 < floorGuard()) { TO.nudgeT = clock; return false; }
+  if (TO.idx < TO.pieces.length - 1) { nextPiece(); return false; }
   closeToast(true); return true;
 }
 function closeToast(now) {
@@ -1892,7 +1929,7 @@ function renderHand(t) {
    ===================================================================== */
 function logic(dt) {
   runFly();
-  if (G.mode === 'round' && G.timing && !TO.on) {
+  if (G.mode === 'round' && G.timing && !TO.on && clock >= G.holdUntil) {     /* holdUntil: the hand-over is letting a bubble finish */
     G.timeLeft -= dt; G.playT += dt; G.starveT += dt;
     checkStarve(false);
     if (!G.lowWarned && G.timeLeft <= 10) { G.lowWarned = true; announce(CONTENT.say.ten); }
@@ -1902,6 +1939,8 @@ function logic(dt) {
       if (!G.busy && !TO.on && !G.handPending && !G.toastQ.length) endRound();
     }
   }
+  /* the strip's bubbles wait while a deck line is up: the player reads the panel, looks back up, and the bubble is still there */
+  if (TO.on) { ['rsb', 'lsb', 'tsb'].forEach(function (k) { if (BUB[k].until > 0) BUB[k].until += dt; }); BUB.rsb.t0 += dt; BUB.lsb.t0 += dt; }
   /* backstop: once time is up and nothing is moving, showing or waiting, the end card comes (a round can never stall at 0:00) */
   if (G.mode === 'round' && G.timeUp && G.phase !== 'deal' && !G.busy && !TO.on && !G.handPending && !G.toastQ.length) endRound();
   /* the idle hint: two tiles of a possible swap wiggle */
@@ -1937,7 +1976,7 @@ function frame(ts) {
 function resetRoundState() {
   G.timeLeft = TUNE.round; G.playT = 0; G.timeUp = false; G.timing = false; G.busy = false; G.cascade = 0; G.cascadeMax = 0; G.points = 0; G.moves = 0; G.refills = 0;
   G.step = 0; G.ready = true; G.handed = 0; G.openerI = OPT.shuffle ? Math.floor(Math.random() * CONTENT.openers.length) : 0; G.stepT0 = 0; G.waits = [0, 0, 0, 0, 0];
-  G.handPending = false; G.flushWait = false; G.toastQ = []; G.idleT = clock; G.hintT = clock; G.hint = null; G.hintTiles = null; G.starveT = 0; G.sel = -1; G.drag = null;
+  G.handPending = false; G.flushWait = false; G.toastQ = []; G.listenFn = null; G.holdUntil = 0; G.idleT = clock; G.hintT = clock; G.hint = null; G.hintTiles = null; G.starveT = 0; G.sel = -1; G.drag = null;
   G.lowWarned = false; G.lastTock = 99; G.scene = 'play'; G.final = null; G.shuffles = 0; G.lastWho = null;
   T.spawned = 0; T.cleared = 0; T.list = []; T.first = {}; T.nextT = TUNE.trapFirst;
   T.order = OPT.shuffle ? shuf(['P', 'M', 'I']) : ['I', 'P', 'M'];
@@ -2025,7 +2064,8 @@ function endRound() {
   if (G.mode === 'end') return;
   clearTimers(); G.mode = 'end'; phase('end'); G.timing = false; G.busy = false; deselect(); G.drag = null;
   var F = computeFinal(); G.final = F; txt(D.sCntN, String(F.handed)); G.timeLeft = Math.max(0, G.timeLeft);
-  TO.on = false; TO.s = 0; DCAP.s = 0; HAND.o = 0; YT.s = 0; D.yt.disabled = true; G.paused = false; G.toastQ = []; G.handPending = false;
+  TO.on = false; TO.s = 0; tw(AB, 's', 0); DCAP.s = 0; HAND.o = 0; YT.s = 0; D.yt.disabled = true; G.paused = false; G.toastQ = []; G.handPending = false; G.listenFn = null; G.holdUntil = 0;
+  IPOP.on = false; FLY.forEach(function (f) { f.on = false; f.cb = null; });
   var best = Math.max(F.score, parseInt(store.get('best'), 10) || 0); store.set('best', best);
   post({ event: 'complete', score: F.score, stars: F.stars, handed: F.handed, traps: F.traps, cleared: F.cleared, seconds: F.seconds, points: F.points, round: F.round });
   cls(D.doorL, 'titled', false); cls(D.doorR, 'titled', false); cls(D.doorL, 'plain', true); cls(D.doorR, 'plain', true);
@@ -2119,17 +2159,23 @@ function demoScript() {
   at(5.25, function () { CH.glowT = clock; });
   at(5.3, function () { tw(HAND, 'x', 236, .4, E.inOut); tw(HAND, 'y', 150, .4, E.inOut); tw(HAND, 'o', .3, .35, E.out); });   /* off the "Next: Ask" pill */
   /* 3. clear traps beside them: three Asks right under Iris, so Iris pops (her line shows) and Ask ticks too */
-  at(6.5, function () { demoCaption(2); tw(HAND, 'o', 1, .25, E.out); handTo(DEMO.a2, .6); grid.forEach(function (t) { if (t && isTrap(t.k)) trapTag(t, .15, 1.3); }); });
-  demoDrag(DEMO.a2, DEMO.b2, 7.3);
-  at(8.05, handAway);
-  at(8.3, function () { popOut(DCAP); });     /* the caption makes way for Iris's line */
-  at(11.3, function () { tw(HAND, 'o', 0, .3, E.out); demoEnd(); });
+  at(7.3, function () { demoCaption(2); tw(HAND, 'o', 1, .25, E.out); handTo(DEMO.a2, .6); grid.forEach(function (t) { if (t && isTrap(t.k)) trapTag(t, .15, 2); }); });
+  demoDrag(DEMO.a2, DEMO.b2, 9.3);
+  at(10.05, handAway);
+  at(10.3, function () { popOut(DCAP); });     /* the caption makes way for Iris's line */
+  /* "Your turn" comes once Iris's line has had its full reading time and closed (never later than 6 s on, whatever happens) */
+  var giveUp = 0;
+  at(11.8, function waitLine() {
+    if (!giveUp) giveUp = clock + 6;
+    if ((TO.on || G.busy || G.toastQ.length) && clock < giveUp) { at(.1, waitLine); return; }
+    at(.5, function () { tw(HAND, 'o', 0, .3, E.out); demoEnd(); });
+  });
 }
 function demoEnd() {
   phase('demoEnd'); popOut(DCAP); tw(DIM, 'o', 1, .3, E.out);
   archieSay(CONTENT.archie.ready);
-  at(.35, function () { popIn(YT, .35); D.yt.disabled = false; });
-  at(.47, function () { if (G.lastInput === 'key') D.yt.focus(); });
+  at(1.5, function () { popIn(YT, .35); D.yt.disabled = false; });     /* Archie's line gets 1.5 s to itself first */
+  at(1.62, function () { if (G.lastInput === 'key') D.yt.focus(); });
 }
 /* (?) during a round: the demo plays, then the player goes back to the same floor, same shopper, same time left */
 function snapshot() {
@@ -2141,7 +2187,7 @@ function restore(s) {
   resetVisuals(); useSeed = !OPT.shuffle;
   G.mode = 'round'; G.step = s.step; G.handed = s.handed; G.queue = s.queue; G.qi = s.qi; G.cur = G.queue[G.qi]; G.openerI = s.openerI; G.timeLeft = s.timeLeft; G.playT = s.playT;
   G.waits = s.waits; G.stepT0 = s.stepT0; G.points = s.points; G.moves = s.moves; G.refills = s.refills; G.starveT = s.starveT; G.lowWarned = s.lowWarned; G.cascadeMax = s.cascadeMax;
-  G.shuffles = s.shuffles; G.lastWho = s.lastWho; G.kfocus = s.kfocus; G.timeUp = false; G.ready = true; G.handPending = false; G.toastQ = []; G.scene = 'play'; G.sel = -1; G.drag = null;
+  G.shuffles = s.shuffles; G.lastWho = s.lastWho; G.kfocus = s.kfocus; G.timeUp = false; G.ready = true; G.handPending = false; G.holdUntil = 0; G.toastQ = []; G.scene = 'play'; G.sel = -1; G.drag = null;
   T.spawned = s.T.spawned; T.cleared = s.T.cleared; T.list = s.T.list; T.first = s.T.first; T.nextT = s.T.nextT; T.order = s.T.order;
   buildBoard(s.K, s.tids);
   for (var i = 0; i < G.step; i++) CH.done[i] = 1;
@@ -2159,7 +2205,7 @@ function yourTurn() {
   var ret = G.demoReturn; G.demoReturn = null;
   if (ret) {
     clearTimers(); phase('deal');
-    doorsCycle(function () { restore(ret); }, function () { archieSay(CONTENT.archie.back, 1.4); at(.3, startPlay); });   /* play resumes once the doors are fully open */
+    doorsCycle(function () { restore(ret); }, function () { archieSay(CONTENT.archie.back, 2); at(.3, startPlay); });   /* play resumes once the doors are fully open */
   } else startRound();
 }
 function howToPlay() {
@@ -2238,7 +2284,7 @@ function tapCell(i) {
 function boardDown(e) {
   if (e.button && e.button !== 0) return;
   if (e.cancelable) e.preventDefault(); G.lastInput = 'pointer'; firstGesture();
-  if (TO.on) { dismissToast(); return; }                    /* a tap on the floor closes the deck line (after .8 s) */
+  if (TO.on) { dismissToast(); return; }                    /* a tap on the floor moves the deck line on (after 2.5 s or more) */
   var hit = boardPoint(e); if (hit.i < 0) return;
   var t = grid[hit.i];
   if (!canAct()) { if (t && G.mode === 'round' && !t.popT) t.wigT = clock; return; }   /* the floor is busy for a moment: the tile wiggles, so the tap is not lost in silence */
@@ -2315,7 +2361,7 @@ armed(D.snd, function () {
 });
 if (D.cls) armed(D.cls, function () { post({ event: 'close' }); });
 /* a tap anywhere on the panel (not just on its words) moves the line on; the arrow button has its own handler */
-function toastDown(e) { if (D.tgo.contains(e.target)) return; if (e.cancelable) e.preventDefault(); G.lastInput = 'pointer'; firstGesture(); skipToast(); }
+function toastDown(e) { if (D.tgo.contains(e.target)) return; if (e.cancelable) e.preventDefault(); G.lastInput = 'pointer'; firstGesture(); dismissToast(); }   /* the panel covers the floor's bottom rows: a tap there is a floor tap */
 if (hasPointer) D.toast.addEventListener('pointerdown', toastDown); else { D.toast.addEventListener('touchstart', toastDown, { passive: false }); D.toast.addEventListener('mousedown', toastDown); }
 
 var DIRS = { ArrowLeft: [0, -1], ArrowRight: [0, 1], ArrowUp: [-1, 0], ArrowDown: [1, 0] };
@@ -2395,7 +2441,7 @@ window.TT_DEBUG = {
   moves: function () { return findMoves(kinds()).map(function (m) { return { r1: rowOf(m.a), c1: colOf(m.a), r2: rowOf(m.b), c2: colOf(m.b), kinds: m.kinds, size: m.size }; }); },
   spawnTrap: function (k, r, c) {
     var i = +r * N + +c, old = grid[i]; if (old) killTile(old);
-    var t = makeTile(k, +r, +c); grid[i] = t; t.tid = T.list.length; T.list.push({ k: k, t0: G.playT, t1: -1 }); T.spawned++; trapTag(t, 0, 1.4); cellLabels(); return boardRows();
+    var t = makeTile(k, +r, +c); grid[i] = t; t.tid = T.list.length; T.list.push({ k: k, t0: G.playT, t1: -1 }); T.spawned++; trapTag(t, 0, 2.2); cellLabels(); return boardRows();
   },
   force: function (what, arg) {
     if (what === 'demo') { G.demoReturn = null; startDemo(false); }

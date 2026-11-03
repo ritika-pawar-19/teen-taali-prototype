@@ -1,9 +1,10 @@
 # Teen Taali
 
 A short swap-and-match game for store staff. It is **mandatory**: staff play it before the LMS opens.
-It takes about a minute: a round is 45 seconds of play, plus a 13 second demo on the first visit.
-The clock stops while a deck line is showing, so a real round takes 50 to 65 seconds from the first tile to the end card
-(about 75 seconds on the first visit, with the demo). Plan for about a minute and a quarter.
+It takes about a minute and a half: a round is 45 seconds of play, plus a 17 second demo on the first visit.
+The clock stops while a deck line is showing, so a real round takes about 60 to 90 seconds from the first tile to the end
+card: nearer 60 for a player who taps each line on once it allows, nearer 90 if every line runs its full reading time.
+The first visit adds the 17 second demo. Plan for about a minute and a half.
 There is no Later button and no close button.
 
 The floor is 6 by 6 tiles. Five of the tiles are the deck's ushering chain, in order: **Greet** (a waving hand, mint),
@@ -21,7 +22,12 @@ step ticks it, and the strip reacts: Rohan nods and opens his palm (Greet), asks
 leans in while she shows what she is looking for (Listen), turns and walks with her (Guide), and at Hand over they reach
 the section. The floor pauses and Archie shows the deck line. Then the next shopper walks in.
 Only one person talks at a time: if Listen ticks while Rohan's opener is still up, she answers once his question has been
-up long enough to read (1.4 to 2 seconds, by its length), the deck's "Ask. Pause. Listen.".
+up long enough to read (3.2 to 4.4 seconds, by its length), the deck's "Ask. Pause. Listen.". Guide does not cut his
+question short either: she answers once it has been read. At Hand over the strip finishes its exchange before the walk
+to the section starts: his question gets up to 3 seconds of its reading time, then her spoken reply (if it was still
+waiting) 1.8 seconds. The floor is locked then anyway; it dims a little and the round clock waits. At 0:00 the hand-over
+goes straight on. A picture-only reply that has not started by then is skipped rather than flashed. While a deck line is showing, the bubbles in the
+strip wait too, so none of them runs out unseen.
 Matches of other steps just score. Out-of-order matches are never punished: the learning is the repeated order.
 
 Three trap tiles drop in now and then: **Phone out**, **Shouting offers** and **Pitch first** (Iris).
@@ -34,17 +40,22 @@ No glasses content. No sign-in. English only.
 
 ## What the player sees
 
-1. **First time on this device only:** a 13 second demo plays by itself. A ghost hand drags a tile to line up three
+1. **First time on this device only:** a 17 second demo plays by itself. A ghost hand drags a tile to line up three
    Greets ("Swap to make three"), points at the glowing Ask in the chain and steps aside so the "Next: Ask" pill can be read
    ("The glow is next"), then makes three Asks right next to Iris, whose "Pitch first" tag shows before she pops
-   ("Clear traps beside them") with her line. Then a big "Your turn" button.
+   ("Clear traps beside them") with her line. Archie says "Greet first. Hand over last." and 1.5 seconds later a big
+   "Your turn" button appears.
    The demo cannot be skipped the first time.
 2. The round: 45 seconds on the clock. The timer turns amber for the last 10 seconds.
 3. After a hand-over, and the first time each kind of trap is cleared, a panel at the bottom shows the deck line while
    the floor and the clock wait. At a hand-over it opens as soon as the floor is still; the walk to the section plays on
-   above it. The line moves on by itself (about 4.5 words a second). After 0.8 seconds the player can
-   move it on sooner: a tap on the panel or its arrow (or Enter) shows the next part; a tap on the floor closes the line.
-   A tap in the first 0.8 seconds only makes the arrow bob.
+   above it. The line moves on by itself, after at least 3 seconds (about 1.2 seconds to look down, then 2.5 words a second:
+   the staff read it in English, on a phone, mid-game). After 1.5 seconds the player can
+   move it on sooner with the round arrow on the panel (or Enter or Space) once the part has been up 1.5 seconds (a third of
+   its reading time on a long line, about 2.4 seconds for the longest): the next part, or the panel closes after the last. A tap anywhere else, on the panel or on the floor (the panel covers the floor's bottom rows on a phone), moves the
+   line on the same way, one part at a time, but only once the part has been up 2.5 seconds (80% of its reading time for
+   a long line), so a habit tap from the last swap cannot close it unread, and a second part is never skipped. An early
+   tap only makes the arrow bob.
    Lines that come from the same cascade share one panel and one pause: the hand-over line first, then the trap line as
    the next part. A trap cleared again later in the round only shows a small crossed-out picture in Rohan's bubble.
 4. When the clock reaches 0:00 the current cascade finishes (and any last line shows), then the end card:
